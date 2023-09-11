@@ -109,9 +109,9 @@ def throughput(data_loader, model, logger):
 
 def main():
     utils.init_distributed_mode(args)
+
     if utils.get_rank() != 0:
         logger.disabled = True
-    print(args)
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError("Finetuning with distillation not yet supported")
@@ -129,8 +129,8 @@ def main():
 
     cudnn.benchmark = True
 
-    dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
-    dataset_val, _          = build_dataset(is_train=False, args=args)
+    dataset_train, args.nb_classes  = build_dataset(is_train=True, args=args)
+    dataset_val, _                  = build_dataset(is_train=False, args=args)
 
     if not args.no_distributed :  # args.distributed:
         num_tasks = utils.get_world_size()
@@ -164,9 +164,10 @@ def main():
         drop_last=True,
     )
 
+    ### What?
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val, sampler=sampler_val,
-        batch_size=int(1.5 * args.batch_size),
+        batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=False
