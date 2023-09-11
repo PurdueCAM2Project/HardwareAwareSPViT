@@ -35,7 +35,6 @@ from collections import OrderedDict
 
 torch.backends.cuda.matmul.allow_tf32 = False
 
-
 class Custom_scaler:
     state_dict_key = "amp_scaler"
 
@@ -133,7 +132,7 @@ def main():
     dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
     dataset_val, _ = build_dataset(is_train=False, args=args)
 
-    if True:  # args.distributed:
+    if not args.no_distributed :  # args.distributed:
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()
         if args.repeated_aug:
