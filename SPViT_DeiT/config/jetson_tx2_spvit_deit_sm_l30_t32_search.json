@@ -11,7 +11,7 @@
   "loss_lambda": 3.0,
   "theta": 1.5,
   "target_flops": 3.2,
-  "resume": "model/deit_small_patch16_224-cd65a155.pth",
+  "resume": "bin/spvit_deit_sm_l30_t32.pth",
   "searching_model": "",
   "assigned_indicators": [],
   "arc_lr": 5e-4,
