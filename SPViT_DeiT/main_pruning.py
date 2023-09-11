@@ -12,6 +12,8 @@ import json
 import os
 from pathlib import Path
 
+from tqdm import tqdm
+
 from timm.data import Mixup
 from timm.models import create_model
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
@@ -57,25 +59,54 @@ class Custom_scaler:
         self._scaler.load_state_dict(state_dict)
 
 
+###
+### NOTE: Modified to use CUDA Event timers instead of time.time(...)
+###
 @torch.no_grad()
 def throughput(data_loader, model, logger):
+    ### Set model to eval() mode
     model.eval()
 
-    for idx, (images, _) in enumerate(data_loader):
-        images = images.cuda(non_blocking=True)
-        batch_size = images.shape[0]
-        for i in range(50):
-            model(images)
-        torch.cuda.synchronize()
-        logger.info(f"throughput averaged with 30 times")
-        tic1 = time.time()
-        for i in range(30):
-            model(images)
-        torch.cuda.synchronize()
-        tic2 = time.time()
-        logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
-        return
+    ### Keep track of average time
+    latency_sum                 = 0.0
+    latency_measurement_count   = 0.0
+    latency_avg                 = 0.0
 
+    ### Use CUDA events for proper timing
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event   = torch.cuda.Event(enable_timing=True)
+
+    ### Wrap progress bar with tqdm
+    progress_bar = tqdm(data_loader)
+
+    for idx, (images, targets) in enumerate(progress_bar):
+        images      = images.cuda(non_blocking=True)
+        batch_size  = images.shape[0]
+
+        ### Warmup
+        if idx < 1:
+            for _ in range(25):
+                model(images)
+            torch.cuda.synchronize()
+
+        ### Start recording
+        start_event.record()
+        
+        ### Forward pass
+        output = model(images)
+
+        ### End recording 
+        end_event.record()
+        torch.cuda.synchronize()
+
+        ### Record time
+        latency_sum += start_event.elapsed_time( end_event )
+        latency_measurement_count += 1.0
+        latency_avg = latency_sum / latency_measurement_count
+
+        progress_bar.set_description('Avg. Running Latency (ms): {:.2f}'.format(latency_avg))
+    
+    print('Avg. Latency: {:.2f}'.format(latency_avg))
 
 def main():
     utils.init_distributed_mode(args)
